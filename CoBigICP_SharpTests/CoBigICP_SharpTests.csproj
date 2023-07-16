@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net7.0-windows</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+	</PropertyGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\TVGL\TVGL PresenterDebugger\TVGL PresenterDebugger.csproj" />
+	  <ProjectReference Include="..\CoBigICP_Sharp\CoBigICP_Sharp.csproj" />
+	</ItemGroup>
+
+</Project>
