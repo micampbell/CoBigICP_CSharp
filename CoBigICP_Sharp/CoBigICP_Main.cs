@@ -54,7 +54,7 @@ namespace CoBigICP_Sharp
                 var RTranspose = R.Transpose();
                 Matrix4x4.Invert(T_curr, out var T_curr_inv);
                 //            R_inv = T_curr_inv(1:3, 1:3); T_inv = T_curr_inv(1:3, end);
-                var AftData = movCloud.OriginalPoints.Select(p => p.Transform(RTranspose*T)).ToList();  // apply transformation to move points.
+                var AftData = movCloud.OriginalPoints.Select(p => p.Transform(T*RTranspose)).ToList();  // apply transformation to move points.
 
                 var refAftData = refCloud.OriginalPoints.Select(p => p.Transform(T_curr_inv)).ToList();  // apply transformation to ref points.
                                                                                                          //                AftData = Loc2Glo(MovData, R', T );   % apply transformation to move points.
