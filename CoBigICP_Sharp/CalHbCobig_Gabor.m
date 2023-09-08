@@ -48,7 +48,10 @@ m4 = infobi(4,:);
 m5 = infobi(5,:);
 m6 = infobi(6,:);
 
-w = -exp(-(v1.*(m1.*v1 + m2.*v2 + m3.*v3) + v2.*(m2.*v1 + m4.*v2 + m5.*v3) + v3.*(m3.*v1 + m5.*v2 + m6.*v3))/(2.*sigma^2))/sigma^2;
+
+xcv = -(v1.*(m1.*v1 + m2.*v2 + m3.*v3) + v2.*(m2.*v1 + m4.*v2 + m5.*v3) + v3.*(m3.*v1 + m5.*v2 + m6.*v3));
+w = -exp(xcv/(2.*sigma^2))/sigma^2;
+%w = -exp(-(v1.*(m1.*v1 + m2.*v2 + m3.*v3) + v2.*(m2.*v1 + m4.*v2 + m5.*v3) + v3.*(m3.*v1 + m5.*v2 + m6.*v3))/(2.*sigma^2))/sigma^2;
 H = [];
 H(end+1, :) = w.*(m4.*(p3.*p3)+m6.*(p2.*p2)-m5.*p2.*p3*2.0);
 H(end+1, :) = -p3.*(m2.*p3.*w-m3.*p2.*w)+p1.*(m5.*p3.*w-m6.*p2.*w);

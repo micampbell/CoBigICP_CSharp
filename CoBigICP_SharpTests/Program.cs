@@ -11,8 +11,8 @@ var MovData = readCloudCsv("Hokuyo_1.csv", 0.1);
 
 
 
-CoBigICP_Sharp.CoBigICP.Run(MovData, RefData);
-
+var matrix = CoBigICP_Sharp.CoBigICP.Run(MovData, RefData);
+Console.WriteLine(matrix.ToString());
 //function[rawPoints] = readCloudCsv(filename, subSampleRatio)
 //% READCLOUDCSV read csv files of ETH data set
 //% INPUTS:

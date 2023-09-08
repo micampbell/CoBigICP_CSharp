@@ -125,7 +125,7 @@ if IS_SHOW
     pcshow(AftData(1:3, :)', 'b');
     title('Result of CoBigICP');
 end
-Tf_est = [R T; 0 0 0 1]
+Tf_est = [R T; 0 0 0 1];
 % Tf_gt
 bTest = 1;
 end
