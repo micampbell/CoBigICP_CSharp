@@ -44,7 +44,7 @@ namespace CoBigICP_Sharp
             var JArray = new List<double>();
             for (int nIter = 0; nIter < MaxIter; nIter++)
             {
-                var T_curr = R * T; // [R T; 0 0 0 1];
+                var T_curr = T*R; // [R T; 0 0 0 1];
                 var RTranspose = R.Transpose();
                 Matrix4x4.Invert(T_curr, out var T_curr_inv);
                 //            R_inv = T_curr_inv(1:3, 1:3); T_inv = T_curr_inv(1:3, end);
@@ -97,7 +97,7 @@ namespace CoBigICP_Sharp
                 //                R = R * dR;
                 dT = Matrix4x4.CreateTranslation(dx[3], dx[4], dx[5]);
                 //                dT = dx(4:6);
-                T = T + dT;
+                T = T * dT;
                 //                T = T + dT;
                 var bTest = 1;
                 //                bTest = 1;
