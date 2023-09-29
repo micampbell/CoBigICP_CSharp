@@ -95,13 +95,14 @@ namespace CoBigICP_Sharp
                     0, 0, 0, 1);
                 R = R * dR;
                 //                R = R * dR;
-                dT = Matrix4x4.CreateTranslation(dx[3], dx[4], dx[5]);
+                var dTVector = new Vector3(dx[3], dx[4], dx[5]);
+                dT = Matrix4x4.CreateTranslation(dTVector);
                 //                dT = dx(4:6);
                 T = T * dT;
                 //                T = T + dT;
                 var bTest = 1;
                 //                bTest = 1;
-                var Err = Math.Max(norm(dR - Matrix4x4.Identity), norm(dT));
+                var Err = Math.Max(norm(dR - Matrix4x4.Identity), dTVector.Length());
                 //                Err = max(norm(dR - eye(3)), norm(dT));
                 JArray.Add(J / MovIdx.Count);
                 //                JArray(end + 1) = J / length(MovIdx);
