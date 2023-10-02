@@ -16,7 +16,7 @@ namespace CoBigICP_Sharp
         {
             var numPoints = data.Count;
             var normals = new NormalInfo[numPoints];
-            var numNeighbors = Math.Min(20, numPoints - 1);
+            var numNeighbors = Math.Min(20, numPoints);
             var S = new Matrix3x3(0.001, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0);
             //var mean =Vector3.Zero;
             //for (int i = 0; i < numPoints; i++)
@@ -97,7 +97,7 @@ namespace CoBigICP_Sharp
         return covariance;
     }
 
-    internal readonly struct NormalInfo
+    internal  struct NormalInfo  //readonly
     {
         public Vector3 Normal { get; init; }
         public Matrix3x3 U { get; init; }

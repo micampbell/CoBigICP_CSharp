@@ -1,18 +1,27 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using TVGL;
-using System.Text;
-using System.Threading.Tasks;
-using SharpDX.Mathematics.Interop;
+﻿using TVGL;
 
-var RefData = readCloudCsv("Hokuyo_0.csv", 0.1);
-var MovData = readCloudCsv("Hokuyo_1.csv", 0.1);
 
+//var RefData = readCloudCsv("Hokuyo_0.csv", 0.1);
+//var MovData = readCloudCsv("Hokuyo_1.csv", 0.1);
+var RefData = new[] { new Vector3(1, 1, 1),
+    new Vector3(5, 1, 1), new Vector3(1, 8, 1),
+    new Vector3(3, 8, 1), new Vector3(8, 3, 3) };
+var transform = Matrix4x4.CreateFromYawPitchRoll(Math.PI / 6, 0.4, 0.5) * Matrix4x4.CreateTranslation(9, 5, 1);
+var MovData = new List<Vector3>();
+foreach (var v in RefData)
+    MovData.Add(v.Transform(transform));
 
 
 var matrix = CoBigICP_Sharp.CoBigICP.Run(MovData, RefData);
 Console.WriteLine(matrix.ToString());
+
+
+
+
+
+
+
+
 //function[rawPoints] = readCloudCsv(filename, subSampleRatio)
 //% READCLOUDCSV read csv files of ETH data set
 //% INPUTS:
@@ -21,10 +30,8 @@ Console.WriteLine(matrix.ToString());
 //% PointCloud0.csv).
 //% -subSampleRatio: Ratio of point to be removed (used for performance
 //%                               reasons)
-static List<Vector3> readCloudCsv(string fileName, double subSampleRatio)
+static List<Vector3> ReadPointsFromCSV(string fileName)
 {
-    //% Load data
-    //cloud = importdata(filename);
     using var reader = new StreamReader(FindInParentDirectory(fileName).FullName);
     var rawPoints = new List<Vector3>();
     var line = reader.ReadLine();

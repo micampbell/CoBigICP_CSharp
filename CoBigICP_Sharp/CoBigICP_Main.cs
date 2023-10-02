@@ -10,7 +10,7 @@ namespace CoBigICP_Sharp
         internal const double cosd30 = 0.8660254037844387;
         //        function[R, T, Flag] = CoBigICP_fun(Md, Mo, MovData, RefData, MovInfo, RefInfo, Tf0, DistThr, AngThr, sigma_times)
         public static Matrix4x4 Run(IList<Vector3> MovData, IList<Vector3> RefData,
-            double DistThr = double.PositiveInfinity, double AngThr = cosd30)
+            double DistThr = double.PositiveInfinity, double AngThr = 0.0)
         {
             return Run(KDTree.Create(MovData, Enumerable.Range(0, MovData.Count).ToList()),
                 KDTree.Create(RefData, Enumerable.Range(0, MovData.Count).ToList()), DistThr, AngThr);
@@ -26,7 +26,7 @@ namespace CoBigICP_Sharp
         private static Matrix4x4 Run(KDTree<Vector3, int> movCloud, NormalInfo[] movingNormalInfo, KDTree<Vector3, int> refCloud,
             NormalInfo[] refNormalInfo, double distThr, double angThr)
         {
-            var TVector = MakeInitialTranslationMatrix(movCloud, refCloud);
+            var forwardTransform = GetTranslationMatrix(movCloud.OriginalPoints, refCloud.OriginalPoints);
             var R = Matrix4x4.Identity;
             //var dR = Matrix4x4.Identity;
             //var dT = Matrix4x4.Identity;
@@ -44,15 +44,12 @@ namespace CoBigICP_Sharp
             var JArray = new List<double>();
             for (int nIter = 0; nIter < MaxIter; nIter++)
             {
-                Matrix4x4.Invert(R, out var R_inv);
-                Matrix4x4 forward = AddTtoR(R_inv, TVector);
-                var backward = AddTtoR(R, -TVector);
-                var AftData = movCloud.OriginalPoints.Select(p => p.Transform(forward)).ToList();  // apply transformation to move points.
-
-                var refAftData = refCloud.OriginalPoints.Select(p => p.Transform(backward)).ToList();  // apply transformation to ref points.
-                                                                                                         //                AftData = Loc2Glo(MovData, R', T );   % apply transformation to move points.
-
-                //  refAftData = Loc2Glo(RefData, R_inv', T_inv );   % apply transformation to ref points.
+                //var forwardTransform = AddTtoR(R, TVector);
+                //Matrix4x4.Invert(R, out var R_inv);
+                Matrix4x4.Invert(forwardTransform, out var backTransform);
+                //Matrix4x4 backTransform = AddTtoR(R_inv, -TVector);
+                var refAftData = refCloud.OriginalPoints.Select(p => p.Transform(forwardTransform)).ToList();  // apply transformation to ref points.
+                var AftData = movCloud.OriginalPoints.Select(p => p.Transform(backTransform)).ToList();  // apply transformation to move points.
 
                 var NNidx = AftData.SelectMany(p => refCloud.FindNearest(p, 1)).ToList();
                 //  [NNIdx, DD] = knnsearch(refCloud, AftData' ); % establish correspondence.
@@ -60,8 +57,8 @@ namespace CoBigICP_Sharp
                 var NNIdx_inverse = refAftData.SelectMany(p => movCloud.FindNearest(p, 1)).ToList();
                 //  [NNIdx_inverse, ~] = knnsearch(movCloud, refAftData' );
                 var bi_eff = Enumerable.Range(0, AftData.Count)
-                    .Where(i => AftData[i].Distance(AftData[NNIdx_inverse[NNidx[i].Item2].Item2]) < 0.01).ToList();
-                var Angle = GetAngle(Norm_Ref, Norm_Mov, NNidx, R);
+                    .Where(i => AftData[i].Distance(AftData[NNIdx_inverse[NNidx[i].Item2].Item2]) < 0.1).ToList();
+                var Angle = GetAngle(Norm_Ref, Norm_Mov, NNidx, R.Transpose());
                 //var Angle = sum(Norm_Ref(:, NNIdx).*(R * Norm_Mov));
                 var EffIdx_sim = Enumerable.Range(0, Angle.Count)
                     .Where(i => Math.Abs(Angle[i]) > angThr && NNidx[i].Item1.Distance(AftData[i]) < distThr).ToList();
@@ -93,16 +90,20 @@ namespace CoBigICP_Sharp
                     dRMatrix[2, 0], dRMatrix[2, 1], dRMatrix[2, 2], 0,
                     0, 0, 0, 1);
                 R = R * dR;
-                //                R = R * dR;
-                var dTVector = new Vector3(dx[3], dx[4], dx[5]);
-                TVector += dTVector;
+                //var dTVector = new Vector3(dx[3], dx[4], dx[5]);
+                //TVector -= dTVector;
+                var Transl = Matrix4x4.CreateTranslation(forwardTransform.M41- dx[3], forwardTransform.M42 - dx[4], forwardTransform.M43 - dx[5]);
+                forwardTransform = R * Transl;
+                var t2 =GetTranslationVector(movCloud.OriginalPoints,
+                    refCloud.OriginalPoints.Select(p => p.Transform(R)));  
+                //Console.WriteLine(t2.ToString());
                 //dT = Matrix4x4.CreateTranslation(dTVector);
                 //                dT = dx(4:6);
                 //T = T * dT;
                 //                T = T + dT;
                 var bTest = 1;
                 //                bTest = 1;
-                var Err = Math.Max(norm(dR - Matrix4x4.Identity), dTVector.Length());
+                //var Err = Math.Max(norm(dR - Matrix4x4.Identity), dTVector.Length());
                 //                Err = max(norm(dR - eye(3)), norm(dT));
                 JArray.Add(J / MovIdx.Count);
                 //                JArray(end + 1) = J / length(MovIdx);
@@ -126,7 +127,8 @@ namespace CoBigICP_Sharp
             //% Tf_gt
             //bTest = 1;
             //                end
-            return AddTtoR(R, -TVector);  // R * T;
+            return forwardTransform;  // R * T;
+            //return AddTtoR(R, TVector);  // R * T;
         }
 
         private static Matrix4x4 AddTtoR(Matrix4x4 m, Vector3 t)
@@ -140,14 +142,18 @@ namespace CoBigICP_Sharp
             var aM = new double[,] { { a4x4.M11, a4x4.M12, a4x4.M13, a4x4.M14 },
                 {a4x4.M21, a4x4.M22, a4x4.M23, a4x4.M24  }, {a4x4.M31, a4x4.M32, a4x4.M33, a4x4.M34  }, {a4x4.M41, a4x4.M42, a4x4.M43, a4x4.M44  } };
             var aMt = aM.Transpose();
-            var eigenValues = StarMathLib.StarMath.GetEigenValues(aMt.multiply(aM));
             var maxEigenValue = 0.0;
-            foreach (var eigenValue in eigenValues)
+            try
             {
-                var magSqd = eigenValue.Real * eigenValue.Real + eigenValue.Imaginary * eigenValue.Imaginary;
-                if (magSqd > maxEigenValue)
-                    maxEigenValue = magSqd;
+                var eigenValues = StarMathLib.StarMath.GetEigenValues(aMt.multiply(aM));
+                foreach (var eigenValue in eigenValues)
+                {
+                    var magSqd = eigenValue.Real * eigenValue.Real + eigenValue.Imaginary * eigenValue.Imaginary;
+                    if (magSqd > maxEigenValue)
+                        maxEigenValue = magSqd;
+                }
             }
+            catch { }
             return Math.Sqrt(Math.Sqrt(maxEigenValue));
         }
 
@@ -298,6 +304,17 @@ namespace CoBigICP_Sharp
                 J += m1[i] * (v1[i] * v1[i]) + m4[i] * (v2[i] * v2[i]) + m6[i] * (v3[i] * v3[i]) + m2[i] * v1[i] * v2[i] * 2.0
                     + m3[i] * v1[i] * v3[i] * 2.0 + m5[i] * v2[i] * v3[i] * 2.0;
             }
+            var maxValue = b.Max(x => Math.Abs(x));
+            for (int i = 0; i < 6; i++)
+                for (int j = 0; j < 6; j++)
+                    if (maxValue < Math.Abs(H[i, j]))
+                        maxValue = Math.Abs(H[i, j]);
+            if (maxValue < 0.1e-6)
+            {
+                var k = 1 / maxValue;
+                b = b.multiply(k);
+                H = H.multiply(k);
+            }
         }
         private static double[] ZipCoefficientAdd(params (double, IList<double>)[] terms)
         {
@@ -418,14 +435,29 @@ namespace CoBigICP_Sharp
             return result;
         }
 
-        private static Vector3 MakeInitialTranslationMatrix(KDTree<Vector3> movCloud, KDTree<Vector3> refCloud)
+        private static Matrix4x4 GetTranslationMatrix(IEnumerable<Vector3> targetPoints, IEnumerable<Vector3> startingPoints)
         {
-            var difference = Vector3.Zero;
-            var n = Math.Min(movCloud.Count, refCloud.Count);
-            for (int i = 0; i < n; i++)
-                difference += refCloud.OriginalPoints[i] - movCloud.OriginalPoints[i];
-            difference /= n;
-            return new Vector3(difference.X, difference.Y, difference.Z);
+            return Matrix4x4.CreateTranslation(GetTranslationVector(targetPoints, startingPoints));
+        }
+
+        private static Vector3 GetTranslationVector(IEnumerable<Vector3> targetPoints, IEnumerable<Vector3> startingPoints)
+        {
+            var targetCom = GetCenterOfMassPoints(targetPoints);
+            var startingCom = GetCenterOfMassPoints(startingPoints);
+            return targetCom - startingCom;
+        }
+
+        private static Vector3 GetCenterOfMassPoints(IEnumerable<Vector3> points)
+        {
+            var numPoints = 0;
+            var center = Vector3.Zero;
+            foreach (var p in points)
+            {
+                center += p;
+                numPoints++;
+            }
+            center /= numPoints;
+            return center;
         }
     }
 }
