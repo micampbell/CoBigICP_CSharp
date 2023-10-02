@@ -26,10 +26,10 @@ namespace CoBigICP_Sharp
         private static Matrix4x4 Run(KDTree<Vector3, int> movCloud, NormalInfo[] movingNormalInfo, KDTree<Vector3, int> refCloud,
             NormalInfo[] refNormalInfo, double distThr, double angThr)
         {
-            var T = MakeInitialTranslationMatrix(movCloud, refCloud);
+            var TVector = MakeInitialTranslationMatrix(movCloud, refCloud);
             var R = Matrix4x4.Identity;
-            var dR = Matrix4x4.Identity;
-            var dT = Matrix4x4.Identity;
+            //var dR = Matrix4x4.Identity;
+            //var dT = Matrix4x4.Identity;
             var success = false;
             var sigma_itr = 31.62;
             var DecayPram = 0.97;  // 1.03;
@@ -44,13 +44,12 @@ namespace CoBigICP_Sharp
             var JArray = new List<double>();
             for (int nIter = 0; nIter < MaxIter; nIter++)
             {
-                var T_curr = T*R; // [R T; 0 0 0 1];
-                var RTranspose = R.Transpose();
-                Matrix4x4.Invert(T_curr, out var T_curr_inv);
-                //            R_inv = T_curr_inv(1:3, 1:3); T_inv = T_curr_inv(1:3, end);
-                var AftData = movCloud.OriginalPoints.Select(p => p.Transform(T * RTranspose)).ToList();  // apply transformation to move points.
+                Matrix4x4.Invert(R, out var R_inv);
+                Matrix4x4 forward = AddTtoR(R_inv, TVector);
+                var backward = AddTtoR(R, -TVector);
+                var AftData = movCloud.OriginalPoints.Select(p => p.Transform(forward)).ToList();  // apply transformation to move points.
 
-                var refAftData = refCloud.OriginalPoints.Select(p => p.Transform(T_curr_inv)).ToList();  // apply transformation to ref points.
+                var refAftData = refCloud.OriginalPoints.Select(p => p.Transform(backward)).ToList();  // apply transformation to ref points.
                                                                                                          //                AftData = Loc2Glo(MovData, R', T );   % apply transformation to move points.
 
                 //  refAftData = Loc2Glo(RefData, R_inv', T_inv );   % apply transformation to ref points.
@@ -89,16 +88,17 @@ namespace CoBigICP_Sharp
                 //                dx = -pinv(H) * b;
                 double[,] dRMatrix = StarMath.ExpMatrix(SkewFun(dx.Take(3).ToArray()));
                 //                dR = expm(SkewFun(dx(1:3)));
-                dR = new Matrix4x4(dRMatrix[0, 0], dRMatrix[0, 1], dRMatrix[0, 2], 0,
+                var dR = new Matrix4x4(dRMatrix[0, 0], dRMatrix[0, 1], dRMatrix[0, 2], 0,
                     dRMatrix[1, 0], dRMatrix[1, 1], dRMatrix[1, 2], 0,
                     dRMatrix[2, 0], dRMatrix[2, 1], dRMatrix[2, 2], 0,
                     0, 0, 0, 1);
                 R = R * dR;
                 //                R = R * dR;
                 var dTVector = new Vector3(dx[3], dx[4], dx[5]);
-                dT = Matrix4x4.CreateTranslation(dTVector);
+                TVector += dTVector;
+                //dT = Matrix4x4.CreateTranslation(dTVector);
                 //                dT = dx(4:6);
-                T = T * dT;
+                //T = T * dT;
                 //                T = T + dT;
                 var bTest = 1;
                 //                bTest = 1;
@@ -126,7 +126,13 @@ namespace CoBigICP_Sharp
             //% Tf_gt
             //bTest = 1;
             //                end
-            return R * T;
+            return AddTtoR(R, -TVector);  // R * T;
+        }
+
+        private static Matrix4x4 AddTtoR(Matrix4x4 m, Vector3 t)
+        {
+            return new Matrix4x4(m.M11, m.M12, m.M13, m.M14, m.M21, m.M22, m.M23, m.M24,
+                m.M31, m.M32, m.M33, m.M34, t.X, t.Y, t.Z, 1);
         }
 
         private static double norm(Matrix4x4 a4x4)
@@ -412,14 +418,14 @@ namespace CoBigICP_Sharp
             return result;
         }
 
-        private static Matrix4x4 MakeInitialTranslationMatrix(KDTree<Vector3> movCloud, KDTree<Vector3> refCloud)
+        private static Vector3 MakeInitialTranslationMatrix(KDTree<Vector3> movCloud, KDTree<Vector3> refCloud)
         {
             var difference = Vector3.Zero;
             var n = Math.Min(movCloud.Count, refCloud.Count);
             for (int i = 0; i < n; i++)
                 difference += refCloud.OriginalPoints[i] - movCloud.OriginalPoints[i];
             difference /= n;
-            return new Matrix4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, difference.X, difference.Y, difference.Z, 1);
+            return new Vector3(difference.X, difference.Y, difference.Z);
         }
     }
 }

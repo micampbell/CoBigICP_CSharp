@@ -44,8 +44,8 @@ for nIter = 1 : 1 : MaxIter
     T_curr = [R T; 0 0 0 1];
     T_curr_inv = inv(T_curr);
     R_inv = T_curr_inv(1:3, 1:3); T_inv = T_curr_inv(1:3, end);
-    AftData = Loc2Glo( MovData, R', T );   % apply transformation to move points.
-    refAftData = Loc2Glo( RefData, R_inv', T_inv );   % apply transformation to ref points.
+    AftData = Loc2Glo( MovData, R_inv, T );   % apply transformation to move points.
+    refAftData = Loc2Glo( RefData, R, T_inv );   % apply transformation to ref points.
     [NNIdx, DD] = knnsearch( refCloud, AftData' ); % establish correspondence.
     % bidirectional correspondence
     [NNIdx_inverse, ~] = knnsearch( movCloud, refAftData' );
